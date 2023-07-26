@@ -33,7 +33,7 @@ func New(cache cacheStorage, viewer viewer.Viewer) http.HandlerFunc {
 		}
 
 		parentObject, ok := cache.Get(req.ParentId)
-		if !ok || !parentObject.Active || parentObject.State == model.UNKNOW_STATE {
+		if !ok || !parentObject.Active {
 			render.JSON(w, r, resp.Error(fmt.Errorf("parent object not found").Error()))
 
 			return

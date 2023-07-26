@@ -62,7 +62,7 @@ func (s Storage) GetTree() (map[string]model.Object, error) {
 }
 
 func (s *Storage) GetLeaf(id string) (model.Object, error) {
-	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree WHERE id = ?`)
+	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree WHERE id = ? and active = true`)
 
 	if err != nil {
 		return model.Object{}, err
@@ -119,6 +119,33 @@ func (s Storage) UpdateLeaf(val model.Object) error {
 	}
 
 	return nil
+}
+
+func (s Storage) GetLeafsByActive(id string, active bool) error {
+	stmt, err := s.db.Prepare(`
+	WITH treeView AS (
+    	select id, leaf, parentId, active FROM tree WHERE id = ?
+    	UNION ALL
+    	select t.id, t.leaf, t.parentId, t.active
+    	FROM tree as t
+    	JOIN treeView as tv ON tv.parentId = t.id
+	) SELECT id From treeView WHERE active = ? LIMIT 1
+	`)
+
+	if err != nil {
+		return err
+	}
+
+	var res string
+
+	err = stmt.QueryRow(id, active).Scan(&res)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func (s Storage) DeleteLeaf(val model.Object) error {

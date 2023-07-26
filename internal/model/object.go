@@ -4,7 +4,6 @@ import gonanoid "github.com/matoous/go-nanoid"
 
 const ACTIVE_STATE = ""
 const DELETE_STATE = " (delete)"
-const UNKNOW_STATE = " (state object unknow)"
 
 type Object struct {
 	Id     string

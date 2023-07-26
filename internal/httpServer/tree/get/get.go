@@ -50,8 +50,6 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 			}
 
 			updateCache(cache, object)
-
-			fmt.Println(cache.GetCollection())
 		}
 
 		render.JSON(w, r, resp.OK(viewer.GetData(cache.GetCollection())))
@@ -74,8 +72,6 @@ func updateCache(cache cacheStorage, newObject model.Object) {
 		} else if ok {
 			newObject.Active = parentOb.Active
 			newObject.State = parentOb.State
-		} else {
-			newObject.State = model.UNKNOW_STATE
 		}
 	}
 
