@@ -31,7 +31,7 @@ func New(dbPath string) (*Storage, error) {
 }
 
 func (s Storage) GetTree() (map[string]model.Object, error) {
-	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree WHERE active = 1 ORDER BY parentId`)
+	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree`)
 
 	if err != nil {
 		return nil, err

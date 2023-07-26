@@ -59,6 +59,7 @@ func updateCache(collection map[string]model.Object, ids []string) map[string]mo
 	for _, id := range ids {
 		v := collection[id]
 		v.Active = false
+		v.State = model.DELETE_STATE
 		collection[id] = v
 	}
 

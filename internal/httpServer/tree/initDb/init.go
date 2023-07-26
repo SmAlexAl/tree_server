@@ -24,6 +24,16 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 		if err != nil {
 			render.JSON(w, r, resp.Error(fmt.Errorf("db error").Error()))
 		}
+		//TODO можно вынести
+		for _, object := range res {
+			if object.Active {
+				object.State = model.ACTIVE_STATE
+			} else {
+				object.State = model.DELETE_STATE
+			}
+
+			res[object.Id] = object
+		}
 
 		render.JSON(w, r, OKWithDb(viewer.GetData(cache.GetCollection()), viewer.GetData(res)))
 	}

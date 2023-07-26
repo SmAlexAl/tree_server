@@ -39,6 +39,42 @@ func New() Fixtures {
 				Parent: "d",
 				Active: true,
 			},
+			{
+				Id:     "tt",
+				Value:  "node6",
+				Parent: "e",
+				Active: true,
+			},
+			{
+				Id:     "yy",
+				Value:  "node7",
+				Parent: "tt",
+				Active: true,
+			},
+			{
+				Id:     "uu",
+				Value:  "node8",
+				Parent: "yy",
+				Active: true,
+			},
+			{
+				Id:     "ttt",
+				Value:  "node9",
+				Parent: "c",
+				Active: true,
+			},
+			{
+				Id:     "yyy",
+				Value:  "node10",
+				Parent: "ttt",
+				Active: true,
+			},
+			{
+				Id:     "uuu",
+				Value:  "node11",
+				Parent: "yyy",
+				Active: true,
+			},
 		},
 	}
 }

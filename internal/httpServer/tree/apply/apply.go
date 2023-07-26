@@ -60,6 +60,16 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 
 		cache.InvalidateTransaction()
 		tree, err := sqlStorage.GetTree()
+		//TODO можно вынести чтобы убрать дубляж
+		for _, object := range tree {
+			if object.Active {
+				object.State = model.ACTIVE_STATE
+			} else {
+				object.State = model.DELETE_STATE
+			}
+
+			tree[object.Id] = object
+		}
 
 		if err != nil {
 			render.JSON(w, r, resp.Error(fmt.Errorf("select tree error: %s", err).Error()))

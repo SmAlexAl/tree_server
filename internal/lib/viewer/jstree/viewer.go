@@ -19,16 +19,15 @@ func New() *Viewer {
 
 func (v Viewer) GetData(collection map[string]model.Object) interface{} {
 	res := make([]Object, 0, len(collection))
-	for _, val := range collection {
-		if val.Active == false {
-			continue
-		}
-		parent := val.Parent
-		if _, ok := collection[parent]; !ok || parent == "" {
-			res = append(res, Object{Id: val.Id, Parent: "#", Text: val.Value})
+	for _, object := range collection {
+		value := object.Value + object.State
+		parent := object.Parent
+		_, ok := collection[parent]
 
+		if !ok || parent == "" {
+			res = append(res, Object{Id: object.Id, Parent: "#", Text: value})
 		} else {
-			res = append(res, Object{Id: val.Id, Parent: parent, Text: val.Value})
+			res = append(res, Object{Id: object.Id, Parent: parent, Text: value})
 		}
 	}
 	return res

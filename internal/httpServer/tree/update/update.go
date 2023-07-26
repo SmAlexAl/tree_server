@@ -34,7 +34,7 @@ func New(cache cacheStorage, viewer viewer.Viewer) http.HandlerFunc {
 		}
 
 		val, ok := cache.Get(req.Id)
-		if !ok {
+		if !ok || !val.Active {
 			render.JSON(w, r, resp.Error(fmt.Errorf("object not found: %s", req.Id).Error()))
 
 			return
