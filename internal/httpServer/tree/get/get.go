@@ -19,7 +19,7 @@ type cacheStorage interface {
 	GetCollection() map[string]model.Object
 }
 
-func New(storage cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.HandlerFunc {
+func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		var id string
@@ -37,7 +37,7 @@ func New(storage cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http
 			return
 		}
 
-		_, ok := storage.Get(id)
+		_, ok := cache.Get(id)
 
 		if !ok {
 			object, err := sqlStorage.GetLeaf(id)
@@ -48,9 +48,9 @@ func New(storage cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http
 				return
 			}
 
-			storage.Set(object)
+			cache.Set(object)
 		}
 
-		render.JSON(w, r, resp.OK(viewer.GetData(storage.GetCollection())))
+		render.JSON(w, r, resp.OK(viewer.GetData(cache.GetCollection())))
 	}
 }
