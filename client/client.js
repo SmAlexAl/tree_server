@@ -2,12 +2,12 @@ $(function () {
 	$('#tree_db').jstree()
 	$('#tree_cache').jstree()
 
-	$.post('http://localhost:8082/tree/init', function(res){
-		if (res.status == "OK") {
-			$('#tree_db').jstree(true).settings.core.data = res.db;
+	$.post('http://localhost:8082/tree/init', function(data){
+		if (data.status == "OK") {
+			$('#tree_db').jstree(true).settings.core.data = data.db;
 			$('#tree_db').jstree(true).refresh();
 
-			$('#tree_cache').jstree(true).settings.core.data = res.collection;
+			$('#tree_cache').jstree(true).settings.core.data = data.collection;
 			$('#tree_cache').jstree(true).refresh();
 		}
 	});
@@ -38,10 +38,11 @@ $(document).on('click','#add',  function(){
 $(document).on('click','#apply', function(){
 	$.post('http://localhost:8082/tree/apply', function(data){
 		if (data.status == "OK") {
-		col = data.collection;
+			$('#tree_db').jstree(true).settings.core.data = data.db;
+			$('#tree_db').jstree(true).refresh();
 
-		$('#tree_db').jstree(true).settings.core.data = col;
-		$('#tree_db').jstree(true).refresh();
+			$('#tree_cache').jstree(true).settings.core.data = data.collection;
+			$('#tree_cache').jstree(true).refresh();
 	}
 	});
 });
