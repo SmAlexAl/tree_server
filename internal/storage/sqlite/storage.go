@@ -11,20 +11,22 @@ type Storage struct {
 	db *sql.DB
 }
 
-func New(dbPath string) (*Storage, error) {
-	const op = "storage.sqlite.new"
+const PREPARE_ERROR = "prepare error"
+const SCAN_ERROR = "scan error"
+const EXEC_ERROR = "exec error"
 
+func New(dbPath string) (*Storage, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("connection error: %w", err)
 	}
 	st := Storage{db: db}
 
 	err = st.initDb()
 
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("init error: %w", err)
 	}
 
 	return &st, nil
@@ -34,7 +36,7 @@ func (s Storage) GetTree() (map[string]model.Object, error) {
 	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree`)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	res := make(map[string]model.Object)
@@ -48,7 +50,7 @@ func (s Storage) GetTree() (map[string]model.Object, error) {
 		err = rows.Scan(&ob.Id, &ob.Value, &parentId, &ob.Active)
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", SCAN_ERROR, err)
 		}
 
 		if parentId != nil {
@@ -65,17 +67,16 @@ func (s *Storage) GetLeaf(id string) (model.Object, error) {
 	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree WHERE id = ? and active = true`)
 
 	if err != nil {
-		return model.Object{}, err
+		return model.Object{}, fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
-	//подумать над адаптером
 	var ob model.Object
 	var parentId interface{}
 
 	err = stmt.QueryRow(id).Scan(&ob.Id, &ob.Value, &parentId, &ob.Active)
 
 	if err != nil {
-		return model.Object{}, err
+		return model.Object{}, fmt.Errorf("%s: %w", SCAN_ERROR, err)
 	}
 
 	if parentId != nil {
@@ -89,7 +90,7 @@ func (s *Storage) SaveLeaf(object model.Object) error {
 	stmt, err := s.db.Prepare(`INSERT INTO tree(id, leaf, parentId, active) VALUES (?, ?, ?, ?)`)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	if object.Parent == "" {
@@ -99,7 +100,7 @@ func (s *Storage) SaveLeaf(object model.Object) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", EXEC_ERROR, err)
 	}
 
 	return nil
@@ -109,19 +110,19 @@ func (s Storage) UpdateLeaf(val model.Object) error {
 	stmt, err := s.db.Prepare(`UPDATE tree SET leaf = ? WHERE id = ?;`)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	_, err = stmt.Exec(val.Value, val.Id)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", EXEC_ERROR, err)
 	}
 
 	return nil
 }
 
-func (s Storage) GetLeafsByActive(id string, active bool) error {
+func (s Storage) GetLeafsByActive(id string, active bool) (bool, error) {
 	stmt, err := s.db.Prepare(`
 	WITH treeView AS (
     	select id, leaf, parentId, active FROM tree WHERE id = ?
@@ -133,18 +134,21 @@ func (s Storage) GetLeafsByActive(id string, active bool) error {
 	`)
 
 	if err != nil {
-		return err
+		return false, fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	var res string
 
 	err = stmt.QueryRow(id, active).Scan(&res)
 
-	if err != nil {
-		return err
+	//TODO решение не оптимальное, принято такое решение, чтобы сократить время выполнения задания
+	if err != nil && err.Error() == "sql: no rows in result set" {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("%s: %w", SCAN_ERROR, err)
 	}
 
-	return nil
+	return true, nil
 
 }
 
@@ -160,21 +164,19 @@ func (s Storage) DeleteLeaf(val model.Object) error {
 	`)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	_, err = stmt.Exec(val.Id)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", EXEC_ERROR, err)
 	}
 
 	return nil
 }
 
 func (s *Storage) initDb() error {
-	const op = "storage.sqlite.new"
-
 	stmt, err := s.db.Prepare(`
 	CREATE TABLE IF NOT EXISTS tree(
 		id STRING PRIMARY KEY,
@@ -185,13 +187,13 @@ func (s *Storage) initDb() error {
 	`)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	_, err = stmt.Exec()
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", EXEC_ERROR, err)
 	}
 
 	return nil
@@ -216,13 +218,13 @@ func (s Storage) SaveLeafs(fixtures []model.Object) error {
 	sqlStr = sqlStr[:len(sqlStr)-1]
 	stmt, err := s.db.Prepare(sqlStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	_, err = stmt.Exec(rows...)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", EXEC_ERROR, err)
 	}
 
 	return nil
@@ -232,13 +234,13 @@ func (s *Storage) TruncateTree() error {
 	stmt, err := s.db.Prepare("DELETE FROM tree")
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
 
 	_, err = stmt.Exec()
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", EXEC_ERROR, err)
 	}
 
 	return nil

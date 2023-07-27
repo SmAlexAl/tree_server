@@ -1,7 +1,6 @@
 package apply
 
 import (
-	"fmt"
 	resp "github.com/SmAlexAl/tree_server.git/internal/lib/api/response"
 	"github.com/SmAlexAl/tree_server.git/internal/lib/viewer"
 	"github.com/SmAlexAl/tree_server.git/internal/model"
@@ -14,7 +13,7 @@ type sqlStorage interface {
 	DeleteLeaf(object model.Object) error
 	SaveLeaf(object model.Object) error
 	GetTree() (map[string]model.Object, error)
-	GetLeafsByActive(id string, active bool) error
+	GetLeafsByActive(id string, active bool) (bool, error)
 }
 
 type cacheStorage interface {
@@ -35,7 +34,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 				err := sqlStorage.UpdateLeaf(transaction.Object)
 
 				if err != nil {
-					render.JSON(w, r, resp.Error(fmt.Errorf("update error: %s", err).Error()))
+					render.JSON(w, r, resp.Error(err.Error()))
 					return
 				}
 
@@ -44,23 +43,22 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 				err := sqlStorage.DeleteLeaf(transaction.Object)
 
 				if err != nil {
-					render.JSON(w, r, resp.Error(fmt.Errorf("delete error: %s", err).Error()))
+					render.JSON(w, r, resp.Error(err.Error()))
 					return
 				}
 
 				break
 			case model.ADD:
-				err := sqlStorage.GetLeafsByActive(transaction.Object.Parent, false)
-				//TODO решение не оптимальное, по возможности переделать
-				if err != nil && err.Error() == "sql: no rows in result set" {
+				status, err := sqlStorage.GetLeafsByActive(transaction.Object.Parent, false)
+				if err != nil {
+					render.JSON(w, r, resp.Error(err.Error()))
+				} else if !status {
 					err = sqlStorage.SaveLeaf(transaction.Object)
 
 					if err != nil {
-						render.JSON(w, r, resp.Error(fmt.Errorf("add error: %s", err).Error()))
+						render.JSON(w, r, resp.Error(err.Error()))
 						return
 					}
-				} else if err != nil {
-					render.JSON(w, r, resp.Error(fmt.Errorf("add error(select): %s", err).Error()))
 				}
 
 				break
@@ -68,30 +66,25 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 		}
 
 		cache.InvalidateTransaction()
+
 		tree, err := sqlStorage.GetTree()
+
+		if err != nil {
+			render.JSON(w, r, resp.Error(err.Error()))
+			return
+		}
+
 		cacheCollection := cache.GetCollection()
 		newCache := make(map[string]model.Object)
-		//TODO можно вынести чтобы убрать дубляж
-		for _, object := range tree {
-			if object.Active {
-				object.State = model.ACTIVE_STATE
-			} else {
-				object.State = model.DELETE_STATE
-			}
 
+		//перезапись текущего кэша, нужно для тестирования
+		for _, object := range tree {
 			if _, ok := cacheCollection[object.Id]; ok {
 				newCache[object.Id] = object
 			}
-
-			tree[object.Id] = object
 		}
 
 		cache.SetCollection(newCache)
-
-		if err != nil {
-			render.JSON(w, r, resp.Error(fmt.Errorf("select tree error: %s", err).Error()))
-			return
-		}
 
 		render.JSON(w, r, OKWithDb(viewer.GetData(newCache), viewer.GetData(tree)))
 	}

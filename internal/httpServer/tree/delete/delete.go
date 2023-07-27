@@ -5,6 +5,7 @@ import (
 	resp "github.com/SmAlexAl/tree_server.git/internal/lib/api/response"
 	"github.com/SmAlexAl/tree_server.git/internal/lib/viewer"
 	"github.com/SmAlexAl/tree_server.git/internal/model"
+	"github.com/SmAlexAl/tree_server.git/internal/service"
 	"github.com/go-chi/render"
 	"net/http"
 )
@@ -42,11 +43,12 @@ func New(cache cacheStorage, viewer viewer.Viewer) http.HandlerFunc {
 		}
 
 		index := cache.GetCollectionIndex()
-		var res []string
 
-		res = getOldId(res, val.Id, index)
+		deleteIds := []string{val.Id}
 
-		cache.SetCollection(updateCache(cache.GetCollection(), res))
+		deleteIds = service.GetChildren(deleteIds, val.Id, index)
+
+		cache.SetCollection(updateCache(cache.GetCollection(), deleteIds))
 
 		cache.AddTransaction(model.NewTransaction(model.DELETE, val))
 
@@ -54,26 +56,12 @@ func New(cache cacheStorage, viewer viewer.Viewer) http.HandlerFunc {
 	}
 }
 
-// TODO подумать над выносом в какой то сервис
 func updateCache(collection map[string]model.Object, ids []string) map[string]model.Object {
 	for _, id := range ids {
 		v := collection[id]
 		v.Active = false
-		v.State = model.DELETE_STATE
 		collection[id] = v
 	}
 
 	return collection
-}
-
-func getOldId(res []string, id string, tree map[string][]string) []string {
-	res = append(res, id)
-	for _, val := range tree[id] {
-		if _, ok := tree[val]; ok {
-			res = getOldId(res, val, tree)
-		}
-		res = append(res, val)
-	}
-
-	return res
 }

@@ -26,8 +26,10 @@ func (s *Storage) Get(id string) (model.Object, bool) {
 }
 
 func (s *Storage) Set(value model.Object) {
+	if _, ok := s.collection[value.Id]; !ok {
+		s.index[value.Parent] = append(s.index[value.Parent], value.Id)
+	}
 	s.collection[value.Id] = value
-	s.index[value.Parent] = append(s.index[value.Parent], value.Id)
 }
 
 func (s *Storage) SetCollection(collection map[string]model.Object) {

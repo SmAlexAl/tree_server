@@ -1,7 +1,6 @@
 package reset
 
 import (
-	"fmt"
 	resp "github.com/SmAlexAl/tree_server.git/internal/lib/api/response"
 	"github.com/SmAlexAl/tree_server.git/internal/lib/viewer"
 	"github.com/SmAlexAl/tree_server.git/internal/model"
@@ -29,7 +28,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, fixtures fixtures, viewer vi
 		err := sqlStorage.TruncateTree()
 
 		if err != nil {
-			render.JSON(w, r, resp.Error(fmt.Errorf("truncate error: %s", err).Error()))
+			render.JSON(w, r, resp.Error(err.Error()))
 
 			return
 		}
@@ -37,7 +36,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, fixtures fixtures, viewer vi
 		err = sqlStorage.SaveLeafs(fixtures.GetCollection())
 
 		if err != nil {
-			render.JSON(w, r, resp.Error(fmt.Errorf("insert error: %s", err).Error()))
+			render.JSON(w, r, resp.Error(err.Error()))
 
 			return
 		}
@@ -47,7 +46,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, fixtures fixtures, viewer vi
 		collection, err := sqlStorage.GetTree()
 
 		if err != nil {
-			render.JSON(w, r, resp.Error(fmt.Errorf("select error: %s", err).Error()))
+			render.JSON(w, r, resp.Error(err.Error()))
 
 			return
 		}

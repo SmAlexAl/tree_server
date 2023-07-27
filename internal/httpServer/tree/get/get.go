@@ -5,6 +5,7 @@ import (
 	resp "github.com/SmAlexAl/tree_server.git/internal/lib/api/response"
 	"github.com/SmAlexAl/tree_server.git/internal/lib/viewer"
 	"github.com/SmAlexAl/tree_server.git/internal/model"
+	"github.com/SmAlexAl/tree_server.git/internal/service"
 	"github.com/go-chi/render"
 	"net/http"
 )
@@ -24,6 +25,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		var id string
+
 		if _, ok := q["id"]; ok {
 			id = q["id"][0]
 		} else {
@@ -33,7 +35,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 		}
 
 		if id == "" {
-			render.JSON(w, r, resp.Error(fmt.Errorf("request parse error").Error()))
+			render.JSON(w, r, resp.Error(fmt.Errorf("id not found").Error()))
 
 			return
 		}
@@ -44,7 +46,7 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 			object, err := sqlStorage.GetLeaf(id)
 
 			if err != nil {
-				render.JSON(w, r, resp.Error(fmt.Errorf("select data error: %s", err).Error()))
+				render.JSON(w, r, resp.Error(err.Error()))
 
 				return
 			}
@@ -56,57 +58,32 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 	}
 }
 
-// TODO можно вынести в отдельный сервис
 func updateCache(cache cacheStorage, newObject model.Object) {
-	if newObject.Parent == "" {
-		if newObject.Active {
-			newObject.State = model.ACTIVE_STATE
-		} else {
-			newObject.State = model.DELETE_STATE
-		}
-	} else {
+	if newObject.Parent != "" {
 		parentOb, ok := cache.Get(newObject.Parent)
-
-		if !newObject.Active {
-			newObject.State = model.DELETE_STATE
-		} else if ok {
+		if ok {
 			newObject.Active = parentOb.Active
-			newObject.State = parentOb.State
 		}
 	}
 
 	var res []string
 	colIndex := cache.GetCollectionIndex()
 
-	childrenId := getChildren(res, newObject.Id, colIndex)
+	childrenId := service.GetChildren(res, newObject.Id, colIndex)
 
 	currentActive := newObject.Active
-	currentState := newObject.State
 
-	for _, v := range childrenId {
-		child, _ := cache.Get(v)
+	for _, id := range childrenId {
+		child, _ := cache.Get(id)
 
 		if currentActive && !child.Active {
 			currentActive = child.Active
-			currentState = child.State
 		}
 
 		child.Active = currentActive
-		child.State = currentState
 
 		cache.Set(child)
 	}
 
 	cache.Set(newObject)
-}
-
-func getChildren(res []string, id string, tree map[string][]string) []string {
-	for _, val := range tree[id] {
-		if _, ok := tree[val]; ok {
-			res = getChildren(res, val, tree)
-		}
-		res = append(res, val)
-	}
-
-	return res
 }

@@ -13,6 +13,8 @@ type Object struct {
 	Text   string `json:"text"`
 }
 
+const DELETE_SUFFIX = " (delete)"
+
 func New() *Viewer {
 	return &Viewer{}
 }
@@ -20,7 +22,11 @@ func New() *Viewer {
 func (v Viewer) GetData(collection map[string]model.Object) interface{} {
 	res := make([]Object, 0, len(collection))
 	for _, object := range collection {
-		value := object.Value + object.State
+		value := object.Value
+		if !object.Active {
+			value += DELETE_SUFFIX
+		}
+
 		parent := object.Parent
 		_, ok := collection[parent]
 
