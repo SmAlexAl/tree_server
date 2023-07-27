@@ -15,6 +15,9 @@ const PREPARE_ERROR = "prepare error"
 const SCAN_ERROR = "scan error"
 const EXEC_ERROR = "exec error"
 
+// TODO возвращается полностью собранный объект, либо список объектов. В некоторых местах есть небольшие манипулиции.
+// По идее нужно создание объекта нужно выносить в "маппер/адаптер"
+// сделал так, потому что задание тестовое для ускорения разработки
 func New(dbPath string) (*Storage, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 
