@@ -43,7 +43,7 @@ func (s Storage) GetTree() (map[string]model.Object, error) {
 	}
 
 	res := make(map[string]model.Object)
-	var parentId interface{}
+	var parentId *string
 
 	rows, err := stmt.Query()
 
@@ -57,7 +57,7 @@ func (s Storage) GetTree() (map[string]model.Object, error) {
 		}
 
 		if parentId != nil {
-			ob.Parent = parentId.(string)
+			ob.Parent = *parentId
 		}
 
 		res[ob.Id] = ob
@@ -74,7 +74,7 @@ func (s *Storage) GetLeaf(id string) (model.Object, error) {
 	}
 
 	var ob model.Object
-	var parentId interface{}
+	var parentId *string
 
 	err = stmt.QueryRow(id).Scan(&ob.Id, &ob.Value, &parentId, &ob.Active)
 
@@ -83,7 +83,7 @@ func (s *Storage) GetLeaf(id string) (model.Object, error) {
 	}
 
 	if parentId != nil {
-		ob.Parent = parentId.(string)
+		ob.Parent = *parentId
 	}
 
 	return ob, nil
