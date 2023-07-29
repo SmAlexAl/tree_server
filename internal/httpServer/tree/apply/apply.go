@@ -14,6 +14,9 @@ type sqlStorage interface {
 	SaveLeaf(object model.Object) error
 	GetTree() (map[string]model.Object, error)
 	GetLeafsByActive(id string, active bool) (bool, error)
+	BeginTransaction() error
+	Commit() error
+	Rollback() error
 }
 
 type cacheStorage interface {
@@ -27,6 +30,11 @@ type cacheStorage interface {
 func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		transactionList := cache.GetAllTransaction()
+		err := sqlStorage.BeginTransaction()
+
+		if err != nil {
+			render.JSON(w, r, resp.Error(err.Error()))
+		}
 
 		for _, transaction := range transactionList {
 			switch transaction.Command {
@@ -35,6 +43,8 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 
 				if err != nil {
 					render.JSON(w, r, resp.Error(err.Error()))
+
+					sqlStorage.Rollback()
 					return
 				}
 
@@ -44,6 +54,8 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 
 				if err != nil {
 					render.JSON(w, r, resp.Error(err.Error()))
+
+					sqlStorage.Rollback()
 					return
 				}
 
@@ -52,17 +64,27 @@ func New(cache cacheStorage, sqlStorage sqlStorage, viewer viewer.Viewer) http.H
 				status, err := sqlStorage.GetLeafsByActive(transaction.Object.Parent, false)
 				if err != nil {
 					render.JSON(w, r, resp.Error(err.Error()))
+
+					sqlStorage.Rollback()
 				} else if !status {
 					err = sqlStorage.SaveLeaf(transaction.Object)
 
 					if err != nil {
 						render.JSON(w, r, resp.Error(err.Error()))
+
+						sqlStorage.Rollback()
 						return
 					}
 				}
 
 				break
 			}
+		}
+
+		err = sqlStorage.Commit()
+
+		if err != nil {
+			render.JSON(w, r, resp.Error(err.Error()))
 		}
 
 		cache.InvalidateTransaction()

@@ -9,6 +9,8 @@ import (
 
 type Storage struct {
 	db *sql.DB
+
+	tx *sql.Tx
 }
 
 const PREPARE_ERROR = "prepare error"
@@ -35,8 +37,54 @@ func New(dbPath string) (*Storage, error) {
 	return &st, nil
 }
 
+func (s *Storage) BeginTransaction() error {
+	tx, err := s.db.Begin()
+
+	s.tx = tx
+
+	return err
+}
+
+func (s *Storage) Commit() error {
+	if s.tx != nil {
+		err := s.tx.Commit()
+
+		if err != nil {
+			return fmt.Errorf("commit error: %w", err)
+		}
+		s.tx = nil
+	} else {
+		return fmt.Errorf("transaction doesnt init")
+	}
+
+	return nil
+}
+
+func (s *Storage) Rollback() error {
+	if s.tx != nil {
+		err := s.tx.Rollback()
+
+		if err != nil {
+			return fmt.Errorf("rollback error: %w", err)
+		}
+		s.tx = nil
+	} else {
+		return fmt.Errorf("transaction doesnt init")
+	}
+
+	return nil
+}
+
+func (s Storage) prepare(sql string) (*sql.Stmt, error) {
+	if s.tx != nil {
+		return s.tx.Prepare(sql)
+	} else {
+		return s.db.Prepare(sql)
+	}
+}
+
 func (s Storage) GetTree() (map[string]model.Object, error) {
-	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree`)
+	stmt, err := s.prepare(`SELECT id, leaf, parentId, active FROM tree`)
 
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", PREPARE_ERROR, err)
@@ -67,7 +115,7 @@ func (s Storage) GetTree() (map[string]model.Object, error) {
 }
 
 func (s *Storage) GetLeaf(id string) (model.Object, error) {
-	stmt, err := s.db.Prepare(`SELECT id, leaf, parentId, active FROM tree WHERE id = ? and active = true`)
+	stmt, err := s.prepare(`SELECT id, leaf, parentId, active FROM tree WHERE id = ? and active = true`)
 
 	if err != nil {
 		return model.Object{}, fmt.Errorf("%s: %w", PREPARE_ERROR, err)
@@ -90,7 +138,7 @@ func (s *Storage) GetLeaf(id string) (model.Object, error) {
 }
 
 func (s *Storage) SaveLeaf(object model.Object) error {
-	stmt, err := s.db.Prepare(`INSERT INTO tree(id, leaf, parentId, active) VALUES (?, ?, ?, ?)`)
+	stmt, err := s.prepare(`INSERT INTO tree(id, leaf, parentId, active) VALUES (?, ?, ?, ?)`)
 
 	if err != nil {
 		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
@@ -110,7 +158,7 @@ func (s *Storage) SaveLeaf(object model.Object) error {
 }
 
 func (s Storage) UpdateLeaf(val model.Object) error {
-	stmt, err := s.db.Prepare(`UPDATE tree SET leaf = ? WHERE id = ?;`)
+	stmt, err := s.prepare(`UPDATE tree SET leaf = ? WHERE id = ?;`)
 
 	if err != nil {
 		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
@@ -126,7 +174,7 @@ func (s Storage) UpdateLeaf(val model.Object) error {
 }
 
 func (s Storage) GetLeafsByActive(id string, active bool) (bool, error) {
-	stmt, err := s.db.Prepare(`
+	stmt, err := s.prepare(`
 	WITH treeView AS (
     	select id, leaf, parentId, active FROM tree WHERE id = ?
     	UNION ALL
@@ -156,7 +204,7 @@ func (s Storage) GetLeafsByActive(id string, active bool) (bool, error) {
 }
 
 func (s Storage) DeleteLeaf(val model.Object) error {
-	stmt, err := s.db.Prepare(`
+	stmt, err := s.prepare(`
 	WITH treeView AS (
     	select id, leaf, parentId, active FROM tree WHERE id = ?
     	UNION ALL
@@ -180,7 +228,7 @@ func (s Storage) DeleteLeaf(val model.Object) error {
 }
 
 func (s *Storage) initDb() error {
-	stmt, err := s.db.Prepare(`
+	stmt, err := s.prepare(`
 	CREATE TABLE IF NOT EXISTS tree(
 		id STRING PRIMARY KEY,
 		leaf STRING NOT NULL,
@@ -219,7 +267,7 @@ func (s Storage) SaveLeafs(fixtures []model.Object) error {
 		rows = append(rows, row.Id, row.Value, p, row.Active)
 	}
 	sqlStr = sqlStr[:len(sqlStr)-1]
-	stmt, err := s.db.Prepare(sqlStr)
+	stmt, err := s.prepare(sqlStr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
 	}
@@ -234,7 +282,7 @@ func (s Storage) SaveLeafs(fixtures []model.Object) error {
 }
 
 func (s *Storage) TruncateTree() error {
-	stmt, err := s.db.Prepare("DELETE FROM tree")
+	stmt, err := s.prepare("DELETE FROM tree")
 
 	if err != nil {
 		return fmt.Errorf("%s: %w", PREPARE_ERROR, err)
